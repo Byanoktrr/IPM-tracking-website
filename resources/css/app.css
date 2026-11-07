@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+@source '../../resources/views/**/*.blade.php';
+@source '../../resources/js/**/*.js';
+
+@theme {
+  --color-admin-primary: #E62727;
+  --color-admin-hover: #d01f1f;
+  --color-supervisor-primary: #1E93AB;
+  --color-supervisor-hover: #177a93;
+  --color-delivery-primary: #79B440;
+  --color-delivery-hover: #6a9d38;
+}
+
+[x-cloak] {
+  display: none !important;
+}
