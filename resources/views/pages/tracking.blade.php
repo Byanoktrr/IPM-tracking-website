@@ -12,8 +12,8 @@
     <header class="bg-white border-b border-gray-200 shadow-xs sticky top-0 z-30">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <div class="flex items-center space-x-3 sm:space-x-4">
-                <img src="/images/IPM-logo.jpg" 
-                     alt="IPM Logo" 
+                <img src="/images/IPM-logo.jpg"
+                     alt="IPM Logo"
                      class="h-10 sm:h-12 w-auto object-contain rounded-md shadow-2xs">
                 <div>
                     <h1 class="text-base sm:text-lg font-extrabold text-gray-900 leading-tight">
@@ -25,7 +25,7 @@
                 </div>
             </div>
 
-            <a href="{{ route('admin') }}" 
+            <a href="{{ route('admin') }}"
                class="inline-flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"/>
@@ -38,7 +38,7 @@
     <!-- Main Tracking Content -->
     <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12"
           x-data="trackingApp({{ Js::from($initialPoQuery) }}, {{ Js::from($initialPoData) }})">
-        
+
         <!-- Search Card -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8 mb-8">
             <div class="text-center max-w-xl mx-auto mb-6">
@@ -57,13 +57,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </span>
-                    <input type="text" 
-                           x-model="poNumber" 
-                           required 
+                    <input type="text"
+                           x-model="poNumber"
+                           required
                            placeholder="Masukkan Nomor PO (cth: PO-2026-001)"
                            class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:border-red-600 focus:ring-2 focus:ring-red-600/20 text-sm font-medium outline-hidden transition">
                 </div>
-                <button type="submit" 
+                <button type="submit"
                         :disabled="loading"
                         class="px-6 py-3 rounded-xl bg-[#E62727] hover:bg-[#d01f1f] text-white font-bold text-sm shadow-md transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2">
                     <svg x-show="loading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
@@ -192,33 +192,69 @@
                                 </template>
                             </div>
 
-                            <div class="flex justify-between py-1.5 border-t border-gray-50">
-                                <span class="text-gray-500">Tanggal Kirim:</span>
-                                <span class="font-semibold text-gray-800" x-text="formatDate(poData.deleverydate)"></span>
-                            </div>
+                            <!-- Detail setiap pengiriman -->
+                            <div class="pt-3 border-t border-gray-100 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Detail Pengiriman</span>
+                                    <span class="text-xs font-semibold text-gray-500"
+                                          x-text="(poData.shipments || []).length + ' pengiriman'"></span>
+                                </div>
 
-                            <div class="flex justify-between py-1.5 border-t border-gray-50">
-                                <span class="text-gray-500">Ekspedisi:</span>
-                                <span class="font-semibold text-gray-800" x-text="poData.ekspedisi || '-'"></span>
-                            </div>
+                                <template x-if="!(poData.shipments || []).length">
+                                    <div class="rounded-xl border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500">
+                                        Belum ada detail pengiriman.
+                                    </div>
+                                </template>
 
-                            <div class="flex justify-between py-1.5 border-t border-gray-50">
-                                <span class="text-gray-500">No Telp Ekspedisi:</span>
-                                <span class="font-semibold text-gray-800 font-mono" x-text="poData.no_ekspedisi || '-'"></span>
-                            </div>
+                                <template x-for="(shipment, index) in (poData.shipments || [])" :key="shipment.id">
+                                    <div class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
+                                        <div class="flex items-center justify-between gap-3">
+                                            <span class="text-xs font-bold text-emerald-800"
+                                                  x-text="'Pengiriman ' + (index + 1)"></span>
+                                            <span class="px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[10px] font-bold text-emerald-700"
+                                                  x-text="shipment.status || '-'"></span>
+                                        </div>
 
-                            <div class="flex justify-between py-1.5 border-t border-gray-50 items-center">
-                                <span class="text-gray-500">Nomor Resi:</span>
-                                <span class="font-bold text-gray-900 font-mono text-base" x-text="poData.noresi || '-'"></span>
-                            </div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                            <div>
+                                                <span class="text-xs text-gray-500 block">Tanggal Kirim:</span>
+                                                <span class="font-semibold text-gray-800" x-text="formatDate(shipment.tanggal_kirim)"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-xs text-gray-500 block">Ekspedisi:</span>
+                                                <span class="font-semibold text-gray-800" x-text="shipment.ekspedisi || '-'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-xs text-gray-500 block">No Telp Ekspedisi:</span>
+                                                <span class="font-semibold text-gray-800 font-mono" x-text="shipment.no_ekspedisi || '-'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-xs text-gray-500 block">Nomor Resi:</span>
+                                                <span class="font-bold text-gray-900 font-mono" x-text="shipment.noresi || '-'"></span>
+                                            </div>
+                                        </div>
 
-                            <!-- Tombol Lacak Paket ↗ -->
-                            <div x-show="poData.linkekspedisi" class="pt-2">
-                                <a :href="poData.linkekspedisi" 
-                                   target="_blank" 
-                                   class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm shadow-sm transition">
-                                    <span>Lacak Paket di Website Ekspedisi ↗</span>
-                                </a>
+                                        <div class="pt-2 border-t border-emerald-100">
+                                            <span class="text-xs text-gray-500 block mb-1">Barang dalam Pengiriman:</span>
+                                            <div class="flex flex-wrap gap-2">
+                                                <template x-for="item in (shipment.items || [])" :key="item.id">
+                                                    <span class="px-2.5 py-1 rounded-full bg-white border border-emerald-200 text-emerald-800 text-xs font-semibold"
+                                                          x-text="item.nama_barang + ' (' + item.qty + ' ' + (item.satuan || '') + ')'"></span>
+                                                </template>
+                                                <span x-show="!(shipment.items || []).length" class="text-xs text-gray-500">
+                                                    Belum ada barang.
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <a x-show="shipment.linkekspedisi"
+                                           :href="shipment.linkekspedisi"
+                                           target="_blank"
+                                           class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm shadow-sm transition">
+                                            <span>Lacak Paket di Website Ekspedisi ↗</span>
+                                        </a>
+                                    </div>
+                                </template>
                             </div>
                         </div>
                     </div>

@@ -19,7 +19,7 @@
                 </p>
             </div>
             <div class="shrink-0">
-                <button @click="openEkspedisiModal()" 
+                <button @click="openEkspedisiModal()"
                         type="button"
                         class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#6a9d38] hover:bg-gray-100 font-bold text-sm shadow-md transition-all duration-200">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,8 +41,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
             </span>
-            <input type="text" 
-                   x-model="searchQuery" 
+            <input type="text"
+                   x-model="searchQuery"
                    placeholder="Cari No PO atau Customer..."
                    class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:border-[#79B440] focus:ring-2 focus:ring-[#79B440]/20 text-sm outline-hidden transition">
         </div>
@@ -61,23 +61,23 @@
                         <th class="py-3 px-4">No PO</th>
                         <th class="py-3 px-4">Nama Customer</th>
                         <th class="py-3 px-4">Tgl Terbit DO</th>
-                        <th class="py-3 px-4">Ekspedisi / Resi</th>
+                        <th class="py-3 px-4">Pengiriman</th>
                         <th class="py-3 px-4 text-center">Status Pengiriman</th>
                         <th class="py-3 px-4 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     <template x-for="po in filteredPos" :key="po.id">
-                        <tr @click="openDeliveryModal(po)" 
+                        <tr @click="openDeliveryModal(po)"
                             class="hover:bg-lime-50/50 cursor-pointer transition-colors group">
                             <td class="py-3.5 px-4 font-bold text-gray-900 group-hover:text-[#79B440] transition-colors" x-text="po.po"></td>
                             <td class="py-3.5 px-4 text-gray-800 font-medium" x-text="po.kostumer"></td>
                             <td class="py-3.5 px-4 text-gray-600" x-text="formatDate(po.tgl_terbit_do)"></td>
                             <td class="py-3.5 px-4 text-gray-700">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="font-medium" x-text="po.ekspedisi || '-'"></span>
-                                    <span x-show="po.noresi" class="text-xs font-mono text-gray-500" x-text="'(' + po.noresi + ')'"></span>
-                                </div>
+                                <span class="inline-flex px-2 py-1 rounded-full bg-lime-100 text-lime-800 text-xs font-bold"
+                                      x-text="(po.shipments || []).length + ' pengiriman'"></span>
+                                <div x-show="po.shipments?.length" class="text-xs text-gray-500 mt-1"
+                                     x-text="po.shipments?.map(s => s.ekspedisi || '-').join(', ')"></div>
                             </td>
                             <td class="py-3.5 px-4 text-center">
                                 <span class="px-3 py-1 rounded-full text-xs font-bold border"
@@ -106,8 +106,8 @@
     </div>
 
     <!-- Modal Edit Informasi Pengiriman -->
-    <div x-cloak 
-         x-show="deliveryModalOpen" 
+    <div x-cloak
+         x-show="deliveryModalOpen"
          class="fixed inset-0 z-50 overflow-y-auto"
          @keydown.escape.window="closeDeliveryModal()">
         <!-- Backdrop -->
@@ -134,16 +134,30 @@
 
                 <!-- Form Content -->
                 <form @submit.prevent="saveDeliveryInfo()" class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+                    <div x-show="(selectedPo?.shipments || []).length" class="space-y-2">
+                        <div class="text-xs font-bold text-gray-700 uppercase tracking-wider">Pengiriman Tersimpan</div>
+                        <div class="grid gap-2">
+                            <template x-for="shipment in (selectedPo?.shipments || [])" :key="shipment.id">
+                                <button type="button" @click="selectShipment(shipment)"
+                                        class="text-left p-2.5 rounded-lg border transition"
+                                        :class="shipment.id === selectedShipmentId ? 'border-[#79B440] bg-lime-50' : 'border-gray-200 bg-white hover:border-lime-300'">
+                                    <div class="flex items-center justify-between gap-2 text-xs">
+                                        <span class="font-bold" x-text="shipment.ekspedisi || 'Ekspedisi belum diisi'"></span>
+                                        <span class="font-mono text-gray-500" x-text="shipment.noresi || '-'"></span>
+                                    </div>
+                                    <div class="text-gray-500 mt-1" x-text="(shipment.items || []).map(item => item.nama_barang).join(', ') || 'Belum ada barang'"></div>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
                     <!-- Status Pengiriman Dropdown -->
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                             Status Pengiriman <span class="text-red-500">*</span>
                         </label>
-                        <select x-model="form.status" 
-                                required 
+                        <select x-model="form.status"
+                                required
                                 class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] focus:ring-2 focus:ring-[#79B440]/20 outline-hidden font-semibold bg-white">
-                            <option value="PENGIRIMAN PARCIAL">PENGIRIMAN PARCIAL</option>
-                            <option value="PENGIRIMAN LENGKAP">PENGIRIMAN LENGKAP</option>
                             <option value="DIKIRIM">DIKIRIM</option>
                             <option value="PROSES">PROSES</option>
                         </select>
@@ -155,7 +169,7 @@
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                 Pilih Ekspedisi
                             </label>
-                            <select x-model="form.ekspedisi" 
+                            <select x-model="form.ekspedisi"
                                     @change="onEkspedisiChange()"
                                     class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] focus:ring-2 focus:ring-[#79B440]/20 outline-hidden bg-white">
                                 <option value="">-- Pilih Master Ekspedisi --</option>
@@ -169,8 +183,8 @@
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                 Link Tracking Ekspedisi
                             </label>
-                            <input type="text" 
-                                   x-model="form.linkekspedisi" 
+                            <input type="text"
+                                   x-model="form.linkekspedisi"
                                    placeholder="https://..."
                                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] focus:ring-2 focus:ring-[#79B440]/20 outline-hidden">
                         </div>
@@ -182,8 +196,8 @@
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                 Delivery Date (Tgl Kirim)
                             </label>
-                            <input type="date" 
-                                   x-model="form.deleverydate" 
+                            <input type="date"
+                                   x-model="form.tanggal_kirim"
                                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] focus:ring-2 focus:ring-[#79B440]/20 outline-hidden">
                         </div>
 
@@ -191,8 +205,8 @@
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                 Nomor Resi
                             </label>
-                            <input type="text" 
-                                   x-model="form.noresi" 
+                            <input type="text"
+                                   x-model="form.noresi"
                                    placeholder="cth: JT123456789"
                                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] focus:ring-2 focus:ring-[#79B440]/20 outline-hidden font-mono">
                         </div>
@@ -201,8 +215,8 @@
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                 No Telp / WA Ekspedisi
                             </label>
-                            <input type="text" 
-                                   x-model="form.no_ekspedisi" 
+                            <input type="text"
+                                   x-model="form.no_ekspedisi"
                                    placeholder="cth: 021-80661888"
                                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] focus:ring-2 focus:ring-[#79B440]/20 outline-hidden">
                         </div>
@@ -219,8 +233,8 @@
                             <!-- 📁 File Upload Button -->
                             <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-100 transition shadow-2xs">
                                 <span>📁 File Lokal</span>
-                                <input type="file" 
-                                       accept="image/*" 
+                                <input type="file"
+                                       accept="image/*"
                                        @change="handleFileUpload($event)"
                                        class="hidden">
                             </label>
@@ -228,16 +242,16 @@
                             <!-- 📷 Mobile Camera Button -->
                             <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-100 transition shadow-2xs">
                                 <span>📷 Kamera HP</span>
-                                <input type="file" 
-                                       accept="image/*" 
-                                       capture="environment" 
+                                <input type="file"
+                                       accept="image/*"
+                                       capture="environment"
                                        @change="handleFileUpload($event)"
                                        class="hidden">
                             </label>
 
                             <!-- 🎥 Webcam Toggle Button -->
-                            <button type="button" 
-                                    @click="toggleWebcam()" 
+                            <button type="button"
+                                    @click="toggleWebcam()"
                                     class="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-100 transition shadow-2xs">
                                 <span>🎥 Webcam Live</span>
                             </button>
@@ -245,19 +259,19 @@
 
                         <!-- Webcam Live Preview Area -->
                         <div x-show="webcamActive" x-cloak class="space-y-3 p-3 bg-black/90 rounded-xl text-center">
-                            <video x-ref="videoElement" 
-                                   autoplay 
-                                   playsinline 
+                            <video x-ref="videoElement"
+                                   autoplay
+                                   playsinline
                                    class="mx-auto rounded-lg max-h-64 w-auto bg-black border border-gray-700"></video>
                             <canvas x-ref="canvasElement" class="hidden"></canvas>
                             <div class="flex items-center justify-center gap-3">
-                                <button type="button" 
-                                        @click="captureWebcam()" 
+                                <button type="button"
+                                        @click="captureWebcam()"
                                         class="px-4 py-2 bg-[#79B440] text-white font-bold rounded-lg text-xs hover:bg-[#6a9d38] shadow-md">
                                     📸 Ambil Foto Sekarang
                                 </button>
-                                <button type="button" 
-                                        @click="stopWebcam()" 
+                                <button type="button"
+                                        @click="stopWebcam()"
                                         class="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg text-xs hover:bg-gray-700">
                                     Tutup Webcam
                                 </button>
@@ -267,8 +281,8 @@
                         <!-- Alternatif URL Teks -->
                         <div>
                             <label class="block text-[11px] text-gray-500 mb-1">Atau masukkan URL / Nama File Gambar langsung:</label>
-                            <input type="text" 
-                                   x-model="form.fotoresi" 
+                            <input type="text"
+                                   x-model="form.fotoresi"
                                    placeholder="https://... atau nama-file.jpg"
                                    class="w-full px-3 py-1.5 text-xs rounded-lg border border-gray-300 focus:border-[#79B440] outline-hidden bg-white">
                         </div>
@@ -277,15 +291,15 @@
                         <div x-show="form.fotoresi" x-cloak class="mt-3">
                             <div class="flex items-center justify-between mb-1.5">
                                 <span class="text-xs font-semibold text-gray-700">Preview Foto Resi:</span>
-                                <button type="button" 
-                                        @click="form.fotoresi = ''" 
+                                <button type="button"
+                                        @click="form.fotoresi = ''"
                                         class="text-xs text-red-500 hover:text-red-700 font-semibold">
                                     ✕ Hapus Foto
                                 </button>
                             </div>
                             <div class="border rounded-xl p-2 bg-white flex justify-center max-h-64 overflow-hidden">
-                                <img :src="form.fotoresi" 
-                                     alt="Preview Resi" 
+                                <img :src="form.fotoresi"
+                                     alt="Preview Resi"
                                      class="max-h-60 rounded-lg object-contain">
                             </div>
                         </div>
@@ -293,19 +307,19 @@
 
                     <!-- Actions -->
                     <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                        <button type="button" 
-                                @click="closeDeliveryModal()" 
+                        <button type="button"
+                                @click="closeDeliveryModal()"
                                 class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-100 transition">
                             Batal
                         </button>
-                        <button type="submit" 
+                        <button type="submit"
                                 :disabled="saving"
                                 class="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#79B440] hover:bg-[#6a9d38] shadow-md transition disabled:opacity-50 flex items-center gap-2">
                             <svg x-show="saving" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                             </svg>
-                            <span>Simpan Informasi Pengiriman</span>
+                            <span x-text="selectedShipmentId ? 'Perbarui Pengiriman' : 'Tambah Pengiriman'"></span>
                         </button>
                     </div>
                 </form>
@@ -314,8 +328,8 @@
     </div>
 
     <!-- Modal Kelola Master Ekspedisi -->
-    <div x-cloak 
-         x-show="ekspedisiModalOpen" 
+    <div x-cloak
+         x-show="ekspedisiModalOpen"
          class="fixed inset-0 z-50 overflow-y-auto"
          @keydown.escape.window="closeEkspedisiModal()">
         <!-- Backdrop -->
@@ -343,18 +357,18 @@
                     <form @submit.prevent="addEkspedisi()" class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-gray-700">Tambah Ekspedisi Baru</h4>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <input type="text" 
-                                   x-model="newEkspedisi.nama_ekspedisi" 
-                                   required 
+                            <input type="text"
+                                   x-model="newEkspedisi.nama_ekspedisi"
+                                   required
                                    placeholder="Nama Ekspedisi (cth: JNE)"
                                    class="px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] outline-hidden bg-white">
-                            <input type="text" 
-                                   x-model="newEkspedisi.link_ekspedisi" 
+                            <input type="text"
+                                   x-model="newEkspedisi.link_ekspedisi"
                                    placeholder="Link Tracking (cth: https://jne.co.id/tracking)"
                                    class="px-3 py-2 text-sm rounded-lg border border-gray-300 focus:border-[#79B440] outline-hidden bg-white">
                         </div>
                         <div class="flex justify-end">
-                            <button type="submit" 
+                            <button type="submit"
                                     :disabled="savingEkspedisi"
                                     class="px-4 py-2 bg-[#79B440] hover:bg-[#6a9d38] text-white text-xs font-bold rounded-lg shadow-sm transition disabled:opacity-50">
                                 + Simpan Ekspedisi
@@ -372,8 +386,8 @@
                                         <div class="font-bold text-sm text-gray-900" x-text="exp.nama_ekspedisi"></div>
                                         <div class="text-xs text-gray-500 truncate max-w-sm" x-text="exp.link_ekspedisi || 'Tidak ada link tracking bawaan'"></div>
                                     </div>
-                                    <button type="button" 
-                                            @click="deleteEkspedisi(exp.id, exp.nama_ekspedisi)" 
+                                    <button type="button"
+                                            @click="deleteEkspedisi(exp.id, exp.nama_ekspedisi)"
                                             class="text-xs text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50 font-semibold transition">
                                         Hapus
                                     </button>
@@ -387,8 +401,8 @@
                 </div>
 
                 <div class="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-end">
-                    <button type="button" 
-                            @click="closeEkspedisiModal()" 
+                    <button type="button"
+                            @click="closeEkspedisiModal()"
                             class="px-4 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-200 transition">
                         Tutup
                     </button>
@@ -409,6 +423,7 @@ document.addEventListener('alpine:init', () => {
         deliveryModalOpen: false,
         ekspedisiModalOpen: false,
         selectedPo: null,
+        selectedShipmentId: null,
         saving: false,
         savingEkspedisi: false,
         webcamActive: false,
@@ -421,7 +436,7 @@ document.addEventListener('alpine:init', () => {
             deleverydate: '',
             noresi: '',
             no_ekspedisi: '',
-            fotoresi: ''
+            fotoresi: '',
         },
 
         newEkspedisi: {
@@ -450,6 +465,7 @@ document.addEventListener('alpine:init', () => {
             switch (status) {
                 case 'PENGIRIMAN PARCIAL': return 'bg-amber-100 text-amber-700 border-amber-200';
                 case 'PENGIRIMAN LENGKAP': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                case 'MENUNGGU_DELIVERY': return 'bg-amber-100 text-amber-700 border-amber-200';
                 case 'DIKIRIM': return 'bg-purple-100 text-purple-700 border-purple-200';
                 case 'PROSES': return 'bg-blue-100 text-blue-700 border-blue-200';
                 default: return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -461,15 +477,21 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/po/${po.id}`);
                 const data = await res.json();
+                const firstShipment = (data.shipments || [])[0] || null;
+                if (!firstShipment) {
+                    throw new Error('Belum ada barang yang dikirim Supervisor ke Delivery.');
+                }
                 this.form = {
-                    status: data.status && (data.status.includes('PENGIRIMAN') || data.status === 'DIKIRIM') ? data.status : 'PENGIRIMAN PARCIAL',
-                    ekspedisi: data.ekspedisi || '',
-                    linkekspedisi: data.linkekspedisi || '',
-                    deleverydate: data.deleverydate || new Date().toISOString().split('T')[0],
-                    noresi: data.noresi || '',
-                    no_ekspedisi: data.no_ekspedisi || '',
-                    fotoresi: data.fotoresi || ''
+                    status: firstShipment?.status || 'DIKIRIM',
+                    ekspedisi: firstShipment?.ekspedisi || '',
+                    linkekspedisi: firstShipment?.linkekspedisi || '',
+                    tanggal_kirim: firstShipment?.tanggal_kirim || new Date().toISOString().split('T')[0],
+                    noresi: firstShipment?.noresi || '',
+                    no_ekspedisi: firstShipment?.no_ekspedisi || '',
+                    fotoresi: firstShipment?.fotoresi || ''
                 };
+                this.selectedShipmentId = firstShipment?.id || null;
+                this.selectedPo = data;
                 this.deliveryModalOpen = true;
             } catch (err) {
                 showToast('Gagal memuat detail pengiriman', 'error');
@@ -480,6 +502,20 @@ document.addEventListener('alpine:init', () => {
             this.stopWebcam();
             this.deliveryModalOpen = false;
             this.selectedPo = null;
+            this.selectedShipmentId = null;
+        },
+
+        selectShipment(shipment) {
+            this.selectedShipmentId = shipment.id;
+            this.form = {
+                status: shipment.status || 'DIKIRIM',
+                ekspedisi: shipment.ekspedisi || '',
+                linkekspedisi: shipment.linkekspedisi || '',
+                tanggal_kirim: shipment.tanggal_kirim || '',
+                noresi: shipment.noresi || '',
+                no_ekspedisi: shipment.no_ekspedisi || '',
+                fotoresi: shipment.fotoresi || ''
+            };
         },
 
         onEkspedisiChange() {
@@ -511,9 +547,9 @@ document.addEventListener('alpine:init', () => {
         async startWebcam() {
             try {
                 this.webcamActive = true;
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' }, 
-                    audio: false 
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: false
                 });
                 this.stream = stream;
                 this.$nextTick(() => {
@@ -553,11 +589,16 @@ document.addEventListener('alpine:init', () => {
 
         async saveDeliveryInfo() {
             if (!this.selectedPo) return;
+            if (!this.selectedShipmentId) {
+                showToast('Belum ada pengiriman dari Supervisor', 'error');
+                return;
+            }
             this.saving = true;
 
             try {
-                const res = await fetch(`/po/${this.selectedPo.id}/delivery`, {
-                    method: 'PATCH',
+                const endpoint = `/po/${this.selectedPo.id}/shipments/${this.selectedShipmentId}`;
+                const res = await fetch(endpoint, {
+                    method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': getCsrfToken(),

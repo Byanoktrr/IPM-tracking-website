@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Po extends Model
 {
@@ -32,6 +33,11 @@ class Po extends Model
             'deleverydate' => 'date',
             'jedahari' => 'integer',
         ];
+    }
+
+    public function shipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class)->latest('id');
     }
 
     /**

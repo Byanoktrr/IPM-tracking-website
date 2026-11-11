@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Ekspedisi;
 use App\Models\Po;
+use App\Models\Shipment;
 use App\Services\ExcelExportService;
 use App\Services\ImageStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -45,7 +47,7 @@ class PoController extends Controller
      */
     public function deliveryView(): View
     {
-        $pos = Po::orderBy('id', 'desc')->get();
+        $pos = Po::with('shipments.items')->orderBy('id', 'desc')->get();
         $ekspedisis = Ekspedisi::orderBy('nama_ekspedisi', 'asc')->get();
 
         return view('pages.delivery', compact('pos', 'ekspedisis'));
@@ -77,7 +79,7 @@ class PoController extends Controller
      */
     public function index(): JsonResponse
     {
-        $pos = Po::orderBy('id', 'desc')->get();
+        $pos = Po::with('shipments.items')->orderBy('id', 'desc')->get();
 
         return response()->json($pos);
     }
@@ -297,6 +299,7 @@ class PoController extends Controller
         }
 
         $po->save();
+        $this->syncLegacyDeliveryToShipment($po);
 
         return response()->json([
             'message' => 'Purchase Order berhasil diperbarui',
@@ -317,38 +320,57 @@ class PoController extends Controller
             'items' => ['nullable', 'array'],
         ]);
 
-        $po->status = $validated['status'];
-        $po->keterangan = $validated['keterangan'] ?? null;
-
-        if (isset($validated['items'])) {
-            $formattedItems = [];
-            foreach ($validated['items'] as $item) {
-                $qty = (float) ($item['qty'] ?? 0);
-                $harga = (float) ($item['harga'] ?? 0);
-                $jumlah = $qty * $harga;
-                $ppn = round($jumlah * 0.11);
-                $total = $jumlah + $ppn;
-
-                $formattedItems[] = [
-                    'nama_barang' => $item['nama_barang'] ?? '',
-                    'brand' => $item['brand'] ?? '',
-                    'qty' => $qty,
-                    'satuan' => $item['satuan'] ?? '',
-                    'harga' => $harga,
-                    'jumlah' => $jumlah,
-                    'ppn' => $ppn,
-                    'total' => $total,
-                    'ready' => ! empty($item['ready']),
-                ];
-            }
-            $po->items = $formattedItems;
-        }
-
-        $po->save();
+        $this->saveSupervisorStatus($po, $validated);
 
         return response()->json([
             'message' => 'Status dan items Purchase Order berhasil diperbarui',
             'data' => $this->transformPoForClient($po),
+        ]);
+    }
+
+    /**
+     * Send all newly-ready items to Delivery as one pending shipment.
+     */
+    public function sendToDelivery(Request $request, int $id): JsonResponse
+    {
+        $po = Po::findOrFail($id);
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'max:255'],
+            'keterangan' => ['nullable', 'string'],
+            'items' => ['nullable', 'array'],
+        ]);
+
+        $this->saveSupervisorStatus($po, $validated);
+
+        $assignedItemIndexes = $po->shipments()->with('items')->get()
+            ->flatMap(fn (Shipment $shipment) => $shipment->items->pluck('item_index'))
+            ->map(fn (int $index): int => $index)
+            ->unique();
+        $readyItems = collect($po->items ?? [])->filter(
+            fn (array $item, int $index): bool => ! empty($item['ready']) && ! $assignedItemIndexes->contains($index)
+        );
+
+        if ($readyItems->isEmpty()) {
+            return response()->json([
+                'message' => 'Tidak ada barang ready baru untuk dikirim ke Delivery.',
+            ], 422);
+        }
+
+        $shipment = $po->shipments()->create([
+            'status' => 'MENUNGGU_DELIVERY',
+        ]);
+        $shipment->items()->createMany($readyItems->map(
+            fn (array $item, int $index): array => [
+                'item_index' => $index,
+                'nama_barang' => $item['nama_barang'] ?? 'Barang',
+                'qty' => (float) ($item['qty'] ?? 0),
+                'satuan' => $item['satuan'] ?? null,
+            ]
+        )->values()->all());
+
+        return response()->json([
+            'message' => 'Barang ready berhasil dikirim ke Delivery.',
+            'data' => $this->transformPoForClient($po->fresh()),
         ]);
     }
 
@@ -402,10 +424,137 @@ class PoController extends Controller
         }
 
         $po->save();
+        $this->syncLegacyDeliveryToShipment($po);
 
         return response()->json([
             'message' => 'Informasi pengiriman berhasil diperbarui',
             'data' => $this->transformPoForClient($po),
+        ]);
+    }
+
+    /**
+     * Create one shipment for selected complete PO items.
+     */
+    public function storeShipment(Request $request, int $id): JsonResponse
+    {
+        $po = Po::findOrFail($id);
+        $validated = $request->validate($this->shipmentRules());
+
+        $itemIndexes = collect($validated['items'])->pluck('item_index')->unique()->values();
+        $items = collect($po->items ?? []);
+        $selectedItems = $itemIndexes->map(function (int $index) use ($items): array {
+            $item = $items->get($index);
+            abort_if($item === null, 422, 'Item pengiriman tidak ditemukan.');
+
+            return [
+                'item_index' => $index,
+                'nama_barang' => $item['nama_barang'] ?? 'Barang',
+                'qty' => (float) ($item['qty'] ?? 0),
+                'satuan' => $item['satuan'] ?? null,
+            ];
+        });
+
+        $alreadyShipped = $po->shipments()->with('items')->get()
+            ->flatMap(fn (Shipment $shipment) => $shipment->items->pluck('item_index'));
+        if ($itemIndexes->intersect($alreadyShipped)->isNotEmpty()) {
+            return response()->json([
+                'message' => 'Sebagian item sudah masuk ke pengiriman lain. Pilih item yang belum dikirim.',
+            ], 422);
+        }
+
+        $shipment = DB::transaction(function () use ($po, $validated, $selectedItems): Shipment {
+            $shipment = $po->shipments()->create([
+                'ekspedisi' => $validated['ekspedisi'] ?? null,
+                'linkekspedisi' => $validated['linkekspedisi'] ?? null,
+                'tanggal_kirim' => $validated['tanggal_kirim'] ?? null,
+                'noresi' => $validated['noresi'] ?? null,
+                'no_ekspedisi' => $validated['no_ekspedisi'] ?? null,
+                'status' => $validated['status'] ?? 'DIKIRIM',
+            ]);
+
+            $shipment->items()->createMany($selectedItems->all());
+
+            if (! empty($validated['fotoresi'])) {
+                $shipment->fotoresi = $this->imageStorageService->saveImage(
+                    $validated['fotoresi'],
+                    $shipment->id,
+                    'resi'
+                );
+                $shipment->save();
+            }
+
+            $po->update(['status' => $validated['status'] ?? 'DIKIRIM']);
+
+            return $shipment;
+        });
+
+        return response()->json([
+            'message' => 'Pengiriman berhasil ditambahkan',
+            'data' => $this->transformPoForClient($po->fresh()),
+        ], 201);
+    }
+
+    /**
+     * Update an existing shipment and its selected complete PO items.
+     */
+    public function updateShipment(Request $request, int $poId, int $shipmentId): JsonResponse
+    {
+        $po = Po::findOrFail($poId);
+        $shipment = $po->shipments()->findOrFail($shipmentId);
+        $validated = $request->validate($this->shipmentRules());
+        $itemIndexes = collect($validated['items'] ?? [])->pluck('item_index')->unique()->values();
+        $items = collect($po->items ?? []);
+
+        $selectedItems = $itemIndexes->map(function (int $index) use ($items): array {
+            $item = $items->get($index);
+            abort_if($item === null, 422, 'Item pengiriman tidak ditemukan.');
+
+            return [
+                'item_index' => $index,
+                'nama_barang' => $item['nama_barang'] ?? 'Barang',
+                'qty' => (float) ($item['qty'] ?? 0),
+                'satuan' => $item['satuan'] ?? null,
+            ];
+        });
+
+        if ($itemIndexes->isNotEmpty()) {
+            $alreadyShipped = $po->shipments()->with('items')->get()
+                ->reject(fn (Shipment $other) => $other->id === $shipment->id)
+                ->flatMap(fn (Shipment $other) => $other->items->pluck('item_index'));
+            if ($itemIndexes->intersect($alreadyShipped)->isNotEmpty()) {
+                return response()->json([
+                    'message' => 'Sebagian item sudah masuk ke pengiriman lain.',
+                ], 422);
+            }
+        }
+
+        DB::transaction(function () use ($shipment, $validated, $selectedItems): void {
+            $shipment->update([
+                'ekspedisi' => $validated['ekspedisi'] ?? null,
+                'linkekspedisi' => $validated['linkekspedisi'] ?? null,
+                'tanggal_kirim' => $validated['tanggal_kirim'] ?? null,
+                'noresi' => $validated['noresi'] ?? null,
+                'no_ekspedisi' => $validated['no_ekspedisi'] ?? null,
+                'status' => $validated['status'] ?? $shipment->status,
+            ]);
+            if ($selectedItems->isNotEmpty()) {
+                $shipment->items()->delete();
+                $shipment->items()->createMany($selectedItems->all());
+            }
+
+            if (! empty($validated['fotoresi'])) {
+                $shipment->fotoresi = $this->imageStorageService->saveImage(
+                    $validated['fotoresi'],
+                    $shipment->id,
+                    'resi'
+                );
+                $shipment->save();
+            }
+        });
+
+        return response()->json([
+            'message' => 'Pengiriman berhasil diperbarui',
+            'data' => $this->transformPoForClient($po->fresh()),
         ]);
     }
 
@@ -459,6 +608,7 @@ class PoController extends Controller
      */
     private function transformPoForClient(Po $po): array
     {
+        $po->loadMissing('shipments.items');
         $data = $po->toArray();
 
         // Format dates as Y-m-d for date input compatibility
@@ -475,6 +625,103 @@ class PoController extends Controller
             $data['foto_barang'] = $this->imageStorageService->toBase64Uri($po->foto_barang);
         }
 
+        $data['shipments'] = collect($po->shipments)->map(function (Shipment $shipment): array {
+            $shipmentData = $shipment->toArray();
+            $shipmentData['tanggal_kirim'] = $shipment->tanggal_kirim?->format('Y-m-d');
+            $shipmentData['fotoresi'] = $this->imageStorageService->toBase64Uri($shipment->fotoresi);
+
+            return $shipmentData;
+        })->values()->all();
+
         return $data;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function shipmentRules(): array
+    {
+        return [
+            'status' => ['nullable', 'string', 'max:255'],
+            'ekspedisi' => ['nullable', 'string', 'max:255'],
+            'linkekspedisi' => ['nullable', 'string', 'max:2000'],
+            'tanggal_kirim' => ['nullable', 'date'],
+            'noresi' => ['nullable', 'string', 'max:255'],
+            'no_ekspedisi' => ['nullable', 'string', 'max:255'],
+            'fotoresi' => ['nullable', 'string'],
+            'items' => ['nullable', 'array', 'min:1'],
+            'items.*.item_index' => ['required', 'integer', 'min:0'],
+        ];
+    }
+
+    /**
+     * Persist supervisor status and preserve an item once it is ready.
+     *
+     * @param  array{status: string, keterangan?: string|null, items?: array<int, array<string, mixed>>}  $validated
+     */
+    private function saveSupervisorStatus(Po $po, array $validated): void
+    {
+        $po->status = $validated['status'];
+        $po->keterangan = $validated['keterangan'] ?? null;
+
+        if (isset($validated['items'])) {
+            $formattedItems = [];
+            foreach ($validated['items'] as $index => $item) {
+                $qty = (float) ($item['qty'] ?? 0);
+                $harga = (float) ($item['harga'] ?? 0);
+                $jumlah = $qty * $harga;
+                $ppn = round($jumlah * 0.11);
+                $total = $jumlah + $ppn;
+                $wasReady = ! empty(($po->items ?? [])[$index]['ready']);
+
+                $formattedItems[] = [
+                    'nama_barang' => $item['nama_barang'] ?? '',
+                    'brand' => $item['brand'] ?? '',
+                    'qty' => $qty,
+                    'satuan' => $item['satuan'] ?? '',
+                    'harga' => $harga,
+                    'jumlah' => $jumlah,
+                    'ppn' => $ppn,
+                    'total' => $total,
+                    'ready' => $wasReady || ! empty($item['ready']),
+                ];
+            }
+            $po->items = $formattedItems;
+        }
+
+        $po->save();
+    }
+
+    private function syncLegacyDeliveryToShipment(Po $po): void
+    {
+        if (blank($po->ekspedisi) && blank($po->noresi) && blank($po->fotoresi)) {
+            return;
+        }
+
+        $shipment = $po->shipments()->firstOrNew();
+        $shipment->fill([
+            'ekspedisi' => $po->ekspedisi,
+            'linkekspedisi' => $po->linkekspedisi,
+            'tanggal_kirim' => $po->deleverydate,
+            'noresi' => $po->noresi,
+            'no_ekspedisi' => $po->no_ekspedisi,
+            'fotoresi' => $po->fotoresi,
+            'status' => $po->status ?: 'DIKIRIM',
+        ]);
+        $shipment->save();
+
+        $shipment->items()->delete();
+        collect($po->items ?? [])->each(function (array $item, int $index) use ($shipment): void {
+            if (empty($item['ready'])) {
+                return;
+            }
+
+            $shipment->items()->create([
+                'item_index' => $index,
+                'nama_barang' => $item['nama_barang'] ?? 'Barang',
+                'qty' => (float) ($item['qty'] ?? 0),
+                'satuan' => $item['satuan'] ?? null,
+            ]);
+        });
     }
 }

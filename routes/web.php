@@ -41,7 +41,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/po/{id}', [PoController::class, 'update'])->whereNumber('id')->name('po.update');
     Route::delete('/po/{id}', [PoController::class, 'destroy'])->whereNumber('id')->name('po.destroy');
     Route::patch('/po/{id}/status', [PoController::class, 'updateStatus'])->whereNumber('id')->name('po.update-status');
+    Route::post('/po/{id}/send-to-delivery', [PoController::class, 'sendToDelivery'])->whereNumber('id')->name('po.send-to-delivery');
     Route::patch('/po/{id}/delivery', [PoController::class, 'updateDelivery'])->whereNumber('id')->name('po.update-delivery');
+    Route::post('/po/{id}/shipments', [PoController::class, 'storeShipment'])->whereNumber('id')->name('po.shipments.store');
+    Route::put('/po/{poId}/shipments/{shipmentId}', [PoController::class, 'updateShipment'])
+        ->whereNumber('poId')
+        ->whereNumber('shipmentId')
+        ->name('po.shipments.update');
 
     // Ekspedisi Endpoints
     Route::get('/ekspedisi', [EkspedisiController::class, 'index'])->name('ekspedisi.index');

@@ -27,15 +27,15 @@
 
     <div class="flex-1 flex overflow-hidden">
         <!-- Mobile Sidebar Backdrop Overlay -->
-        <div x-cloak 
-             x-show="sidebarOpen" 
-             x-transition:enter="transition-opacity ease-linear duration-300" 
-             x-transition:enter-start="opacity-0" 
-             x-transition:enter-end="opacity-100" 
-             x-transition:leave="transition-opacity ease-linear duration-300" 
-             x-transition:leave-start="opacity-100" 
-             x-transition:leave-end="opacity-0" 
-             class="fixed inset-0 z-40 bg-gray-900/60 lg:hidden" 
+        <div x-cloak
+             x-show="sidebarOpen"
+             x-transition:enter="transition-opacity ease-linear duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-linear duration-300"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-40 bg-gray-900/60 lg:hidden"
              @click="sidebarOpen = false">
         </div>
 
@@ -50,7 +50,7 @@
                     </div>
                     <div>
                         <h1 class="font-bold text-lg leading-tight tracking-wide">STATUS BARANG</h1>
-                        <p class="text-xs text-white/80 font-medium">CV. Indomulti Prakarsa</p>
+                        <p class="text-xs text-white/80 font-medium">CV. Indomulti Prakarsa Mandiri</p>
                     </div>
                 </div>
                 <!-- Close Button (Mobile) -->
@@ -68,7 +68,7 @@
                 </div>
 
                 <!-- ADMIN GUDANG -->
-                <a href="{{ route('admin') }}" 
+                <a href="{{ route('admin') }}"
                    class="flex items-center space-x-3 px-4 py-3 rounded-lg font-semibold transition-all duration-200 {{ $activeRole === 'admin' ? 'bg-white text-[#E62727] shadow-md' : 'text-white hover:bg-white/15' }}">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
@@ -77,7 +77,7 @@
                 </a>
 
                 <!-- SUPERVISOR GUDANG -->
-                <a href="{{ route('supervisor') }}" 
+                <a href="{{ route('supervisor') }}"
                    class="flex items-center space-x-3 px-4 py-3 rounded-lg font-semibold transition-all duration-200 {{ $activeRole === 'supervisor' ? 'bg-white text-[#1E93AB] shadow-md' : 'text-white hover:bg-white/15' }}">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -86,7 +86,7 @@
                 </a>
 
                 <!-- DELIVERY -->
-                <a href="{{ route('delivery') }}" 
+                <a href="{{ route('delivery') }}"
                    class="flex items-center space-x-3 px-4 py-3 rounded-lg font-semibold transition-all duration-200 {{ $activeRole === 'delivery' ? 'bg-white text-[#79B440] shadow-md' : 'text-white hover:bg-white/15' }}">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
@@ -127,8 +127,8 @@
                 <div class="px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
                     <div class="flex items-center space-x-3">
                         <!-- Mobile Hamburger Button -->
-                        <button @click="sidebarOpen = !sidebarOpen" 
-                                type="button" 
+                        <button @click="sidebarOpen = !sidebarOpen"
+                                type="button"
                                 class="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-hidden">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -153,7 +153,7 @@
 
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
-                            <button type="submit" 
+                            <button type="submit"
                                     class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-red-50 hover:text-red-600 transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -192,8 +192,8 @@
          @toast-notify.window="add($event.detail.message, $event.detail.type)"
          class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none">
         <template x-for="toast in toasts" :key="toast.id">
-            <div x-cloak 
-                 x-show="true" 
+            <div x-cloak
+                 x-show="true"
                  x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 translate-y-2"
                  x-transition:enter-end="opacity-100 translate-y-0"
